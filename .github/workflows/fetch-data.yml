@@ -1,0 +1,41 @@
+name: Fetch Hurrier Data
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+# Grant the Action permission to write back to the repo
+permissions:
+  contents: write
+
+jobs:
+  fetch-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Fetch Hurrier data for all hubs
+        env:
+          TALABAT_TOKEN: ${{ secrets.TALABAT_API_TOKEN }}
+          TALABAT_API_BASE: ${{ secrets.TALABAT_API_BASE }}
+        run: node scripts/fetch-hurrier.js
+
+      - name: Commit and push updated data files
+        run: |
+          git config user.name  "hurrier-bot"
+          git config user.email "hurrier-bot@noreply.github.com"
+          git add data-*.json
+          git diff --cached --quiet && echo "No changes, skipping commit." && exit 0
+          git commit -m "data: auto-update $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          git push origin HEAD:main
